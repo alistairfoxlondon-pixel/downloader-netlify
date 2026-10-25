@@ -1,0 +1,59 @@
+name: Probe source pages
+
+on:
+  workflow_dispatch:
+    inputs:
+      urls_file:
+        description: 'Path in repo containing one URL per line'
+        required: false
+        default: 'scripts/probe-urls.txt'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch pages
+        run: |
+          mkdir -p probe
+          i=0
+          while IFS= read -r url || [ -n "$url" ]; do
+            [ -z "$url" ] && continue
+            case "$url" in \#*) continue ;; esac
+            i=$((i+1))
+            name="src${i}"
+            echo "== $name $url"
+            {
+              echo "URL: $url"
+              curl -sS -L --max-time 45 \
+                -A 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' \
+                -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' \
+                -H 'Accept-Language: en-US,en;q=0.9' \
+                -D "probe/${name}.headers.txt" \
+                -o "probe/${name}.html" \
+                -w 'FINAL_URL: %{url_effective}\nHTTP_CODE: %{http_code}\nCONTENT_TYPE: %{content_type}\nSIZE: %{size_download}\nREDIRECTS: %{num_redirects}\n' \
+                "$url" || echo "CURL_FAILED: $?"
+            } | tee "probe/${name}.meta.txt"
+            echo "TITLE: $(grep -oiE '<title[^>]*>[^<]*' "probe/${name}.html" | head -1)" >> "probe/${name}.meta.txt" || true
+            sleep 2
+          done < "${{ inputs.urls_file }}"
+          ls -la probe/
+
+      - name: Grep candidate media references
+        run: |
+          {
+            echo "=== candidate media URLs ==="
+            grep -rhoE 'https?://[^"'"'"' <>\\)]+\.(mp4|m3u8|mpd|webm|ts)(\?[^"'"'"' <>\\)]*)?' probe/*.html 2>/dev/null | sort -u
+            echo "=== src/hls/sources mentions ==="
+            grep -rhoiE '(file|src|source|url|hls|playlist|sources)[\"'"'"']?\s*[:=]\s*[\"'"'"'][^\"'"'"']{8,300}' probe/*.html 2>/dev/null | sort -u | head -100
+          } | tee probe/findings.txt
+
+      - name: Upload probe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-probe
+          path: probe/
+          if-no-files-found: error
+          retention-days: 7
