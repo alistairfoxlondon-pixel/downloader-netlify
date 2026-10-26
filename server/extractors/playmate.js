@@ -54,7 +54,6 @@ export async function extract(url) {
       if (!data?.sx) throw jsonErr;
     }
   } catch (cause) {
-    const status = cause?.details ? undefined : undefined;
     throw new AppError(
       "E_UPSTREAM",
       "playmate.to is currently unreachable (the origin server returned an error or timed out). Try again later.",

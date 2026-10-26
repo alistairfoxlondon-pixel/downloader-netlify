@@ -1,5 +1,5 @@
 import { AppError } from "../lib/errors.js";
-import { safeFetch, safeFetchText, safeFetchJson, looksHtml } from "../lib/safehttp.js";
+import { safeFetchText, safeFetchJson, looksHtml } from "../lib/safehttp.js";
 import { scriptById, pageTitle, ogMeta, firstH1 } from "../lib/dom.js";
 import { absolutize, classifyMediaUrl } from "./_shared.js";
 
