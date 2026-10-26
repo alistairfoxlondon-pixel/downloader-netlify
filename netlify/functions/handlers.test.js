@@ -41,8 +41,13 @@ function req(path, { method = "GET", body, headers = {} } = {}) {
 
 beforeEach(() => {
   delete process.env.MEDIA_SIGNING_SECRET;
+  // Generous buckets so tests never trip the (production) rate limiter.
+  process.env.EXTRACT_BURST = "100";
+  process.env.EXTRACT_PER_MIN = "600";
 });
 afterEach(() => {
+  delete process.env.EXTRACT_BURST;
+  delete process.env.EXTRACT_PER_MIN;
   vi.unstubAllGlobals();
 });
 
@@ -86,6 +91,29 @@ describe("POST /api/extract", () => {
     expect(data.worker.healthy).toBe(false);
     expect(data.sources[0].downloadable).toBe("direct");
   }, 20000);
+
+  it("explains restricted egress after network failures from two distinct hosts", async () => {
+    installRouter(() => {
+      throw new TypeError("fetch failed"); // connect-level failure
+    });
+
+    const first = await extractHandler(
+      req("/api/extract", { method: "POST", body: { url: "https://alpha.example/video.mp4" } }),
+    );
+    expect(first.status).toBe(504);
+    const firstBody = await first.json();
+    expect(firstBody.error.code).toBe("E_UPSTREAM");
+    expect(firstBody.error.message).toMatch(/network error/i);
+
+    const second = await extractHandler(
+      req("/api/extract", { method: "POST", body: { url: "https://beta.example/video.mp4" } }),
+    );
+    expect(second.status).toBe(504);
+    const secondBody = await second.json();
+    expect(secondBody.error.code).toBe("E_UPSTREAM");
+    expect(secondBody.error.message).toMatch(/restricted network/i);
+    expect(secondBody.error.message).toMatch(/deploy it to Netlify/i);
+  });
 
   it("rejects invalid URLs with 400 and a clear code", async () => {
     const res = await extractHandler(req("/api/extract", { method: "POST", body: { url: "not-a-url" } }));

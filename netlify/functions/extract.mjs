@@ -9,12 +9,23 @@ export const config = { path: "/api/extract" };
 
 const TOKEN_TTL = 15 * 60;
 
+/** Distinct hosts whose fetch failed with a connect-level network error since
+ * the last successful extraction. Two distinct hosts + no success = this
+ * server's network is restricted (e.g. a sandboxed preview), not "the site is
+ * down" — say that plainly instead of a generic upstream error. */
+const netFailHosts = new Set();
+const isNetFail = (err) =>
+  (err?.code === "E_UPSTREAM" && String(err.message).includes("(network error)")) || err?.code === "E_TIMEOUT";
+const RESTRICTED_MSG =
+  "No video site is reachable from this server (restricted network). Run the app on your own machine or deploy it to Netlify.";
+
 export default async function handler(request) {
   if (request.method === "OPTIONS") return noContent();
   if (request.method !== "POST") {
     return json({ ok: false, error: { code: "E_METHOD", message: "Use POST to extract a video." } }, 405);
   }
 
+  let url = "";
   try {
     const ip = clientIp(request);
     const rl = rateLimit(`extract:${ip}`, {
@@ -37,12 +48,13 @@ export default async function handler(request) {
     }
 
     const body = await readJsonBody(request, 4096);
-    const url = typeof body?.url === "string" ? body.url : "";
+    url = typeof body?.url === "string" ? body.url : "";
     if (!url.trim()) {
       throw new AppError("E_BAD_URL", "Please paste a video URL.", { status: 400 });
     }
 
     const result = await extractFromUrl(url);
+    netFailHosts.clear(); // network demonstrably works
     const worker = await workerHealth();
 
     const sources = result.sources.map((s, i) => {
@@ -83,6 +95,18 @@ export default async function handler(request) {
       expiresAt: Math.floor(Date.now() / 1000) + TOKEN_TTL,
     });
   } catch (err) {
+    if (isNetFail(err)) {
+      try {
+        netFailHosts.add(new URL(url).hostname);
+      } catch {
+        /* unparseable URL — ignore */
+      }
+      if (netFailHosts.size >= 2) {
+        return errorResponse(
+          new AppError("E_UPSTREAM", RESTRICTED_MSG, { status: err.status || 504 }),
+        );
+      }
+    }
     return errorResponse(err);
   }
 }

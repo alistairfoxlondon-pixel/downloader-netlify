@@ -7,6 +7,15 @@ import { spawn } from "node:child_process";
 // Production defaults are unchanged; explicit env values still win.
 process.env.FETCH_TIMEOUT_MS ||= "6000";
 process.env.MEDIA_FETCH_TIMEOUT_MS ||= "12000";
+// Generous rate limits for local/preview use — the strict production defaults
+// (burst 8, cost 2 per extract) lock out interactive testing after a handful
+// of pastes (and any smoke tests).
+process.env.EXTRACT_BURST ||= "60";
+process.env.EXTRACT_PER_MIN ||= "120";
+process.env.MEDIA_BURST ||= "600";
+process.env.MEDIA_PER_MIN ||= "600";
+process.env.JOBS_BURST ||= "20";
+process.env.JOBS_PER_MIN ||= "30";
 
 const procs = [];
 
