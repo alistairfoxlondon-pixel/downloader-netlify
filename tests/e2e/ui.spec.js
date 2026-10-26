@@ -150,8 +150,24 @@ test.describe("UI", () => {
     const hasDownload = await page.locator('button[aria-label*="source as file"]').count();
     const unverifiedNote = page.getByText(/cannot be confirmed/i);
     const video = page.locator("video.preview-video");
+    const mediaStatuses = [];
+    page.on("response", (r) => {
+      if (r.url().includes("/api/media")) mediaStatuses.push(r.status());
+    });
     if (await video.count()) {
-      await expect.poll(() => video.evaluate((v) => v.readyState), { timeout: 45_000 }).toBeGreaterThanOrEqual(1);
+      try {
+        await expect.poll(() => video.evaluate((v) => v.readyState), { timeout: 45_000 }).toBeGreaterThanOrEqual(1);
+      } catch (e) {
+        const diag = await video.evaluate((v) => ({
+          ready: v.readyState,
+          network: v.networkState,
+          error: v.error ? { code: v.error.code, message: v.error.message } : null,
+          src: v.currentSrc,
+        }));
+        throw new Error(
+          `preview stalled: ${JSON.stringify(diag)} · /api/media statuses: [${mediaStatuses.join(", ")}] · ${e.message}`,
+        );
+      }
       expect(hasDownload).toBeGreaterThan(0);
     } else {
       await expect(unverifiedNote.first()).toBeVisible();
