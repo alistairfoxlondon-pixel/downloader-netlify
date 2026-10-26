@@ -164,8 +164,21 @@ test.describe("UI", () => {
           error: v.error ? { code: v.error.code, message: v.error.message } : null,
           src: v.currentSrc,
         }));
+        // Re-fetch the preview URL ourselves and inspect what the server
+        // actually returns (status, final URL, content-type, first bytes).
+        const sniff = await page.evaluate(async (src) => {
+          try {
+            const r = await fetch(src, { headers: { Range: "bytes=0-63" } });
+            const b = new Uint8Array(await r.arrayBuffer());
+            let ascii = "";
+            for (const ch of b) ascii += ch >= 32 && ch < 127 ? String.fromCharCode(ch) : ".";
+            return { status: r.status, finalUrl: r.url.slice(0, 160), ct: r.headers.get("content-type"), ascii: ascii.slice(0, 64) };
+          } catch (err) {
+            return { err: String(err) };
+          }
+        }, diag.src);
         throw new Error(
-          `preview stalled: ${JSON.stringify(diag)} · /api/media statuses: [${mediaStatuses.join(", ")}] · ${e.message}`,
+          `preview stalled: ${JSON.stringify(diag)} · sniff: ${JSON.stringify(sniff)} · /api/media statuses: [${mediaStatuses.join(", ")}]`,
         );
       }
       expect(hasDownload).toBeGreaterThan(0);
