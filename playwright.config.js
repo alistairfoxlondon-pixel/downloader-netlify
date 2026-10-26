@@ -36,6 +36,17 @@ export default defineConfig({
       port: 8899,
       reuseExistingServer: !process.env.CI,
       timeout: 30_000,
+      // The E2E suite legitimately issues many extract requests in a short
+      // window across two viewport projects and retries — give the local
+      // emulator headroom. Production defaults stay strict.
+      env: {
+        EXTRACT_BURST: "40",
+        EXTRACT_PER_MIN: "60",
+        MEDIA_BURST: "240",
+        MEDIA_PER_MIN: "300",
+        JOBS_BURST: "20",
+        JOBS_PER_MIN: "30",
+      },
     },
     {
       command: "npm run build && npm run preview -- --port 4173",

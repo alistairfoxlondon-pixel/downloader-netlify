@@ -43,3 +43,16 @@ if [ "$ok_count" -eq 0 ]; then
   exit 1
 fi
 echo "WINNER=${winner}"
+
+# Second pass: replay the exact request shape our server-side classifier sends
+# (Chrome UA + Origin + Referer + bytes range) against the winner, to detect
+# hosts that 403 header combinations a plain <video> GET would never carry.
+tmp="$(mktemp)"
+code=$(curl -sL --max-time 25 --range 0-2047 \
+  -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36' \
+  -H "Origin: ${winner%%/*}//$(echo "$winner" | cut -d/ -f3)" \
+  -H "Referer: $winner" \
+  -o "$tmp" -w '%{http_code}' "$winner" 2>/dev/null || echo "000")
+box="$(head -c 16 "$tmp" | dd bs=1 skip=4 count=4 2>/dev/null)"
+echo "::notice title=classifier-shape probe::${winner} → HTTP ${code}, box=${box} (200/206+ftyp = header-safe; 403 = host rejects Origin/Referer combos)"
+rm -f "$tmp"

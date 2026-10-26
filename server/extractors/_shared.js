@@ -61,15 +61,26 @@ export async function classifyMediaUrl(url, opts = {}) {
     ext === "m3u8" ? "m3u8" : ext === "mp4" ? "mp4" : ext === "m4v" ? "mp4" : ext === "mov" ? "mov" :
     ext === "webm" ? "webm" : ext === "mkv" ? "mkv" : ext === "mpd" ? "mpd" : ext === "ts" ? "ts" : null;
 
-  const res = await safeFetch(url, {
-    range: "bytes=0-2047",
-    referer: opts.referer,
-    origin: opts.origin,
-    timeoutMs: opts.timeoutMs ?? 15000,
-    maxBytes: 64 * 1024,
-    truncateOk: true, // servers that ignore Range may reply with the full body
-    accept: "*/*",
-  });
+  const probe = async ({ withExtraHeaders }) => {
+    const res = await safeFetch(url, {
+      range: "bytes=0-2047",
+      referer: withExtraHeaders ? opts.referer : undefined,
+      origin: withExtraHeaders ? opts.origin : undefined,
+      timeoutMs: opts.timeoutMs ?? 15000,
+      maxBytes: 64 * 1024,
+      truncateOk: true, // servers that ignore Range may reply with the full body
+      accept: "*/*",
+    });
+    return res;
+  };
+
+  let res = await probe({ withExtraHeaders: true });
+  // Some media hosts 403 requests that carry Referer/Origin headers even
+  // though a plain browser <video> GET (no Origin, minimal Referer) is served
+  // fine. Retry once exactly like the browser would before declaring failure.
+  if ((res.status === 403 || res.status === 401) && (opts.referer || opts.origin)) {
+    res = await probe({ withExtraHeaders: false });
+  }
   if (res.status >= 400) {
     throw new AppError(
       res.status === 403 || res.status === 401 ? "E_ACCESS_DENIED" : "E_MEDIA_UNREACHABLE",
