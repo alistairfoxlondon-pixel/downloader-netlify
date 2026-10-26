@@ -50,7 +50,6 @@ test.describe("UI", () => {
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(page.getByLabel("Video URL", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Fetch video" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /three steps/i })).toBeVisible();
 
     // The input accepts text and holds focus (form is actually interactive).
     const input = page.getByLabel("Video URL", { exact: true });

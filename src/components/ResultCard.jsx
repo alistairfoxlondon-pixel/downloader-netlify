@@ -133,11 +133,7 @@ export default function ResultCard({ result, workerHealthy, onCopy, onDownload, 
         {/* ---- formats / actions ---- */}
         <Divider sx={{ my: 2.5 }} />
         <Typography variant="h6" component="h3" sx={{ mb: 0.5 }}>
-          Download options
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-          Quality options are listed exactly as the source provides them. MP4 is only offered when the source is a real
-          MP4 file or when the conversion service produces one.
+          Download
         </Typography>
         <FormatsTable
           sources={sources}

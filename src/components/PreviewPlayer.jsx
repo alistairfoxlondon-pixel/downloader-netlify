@@ -123,9 +123,7 @@ export default function PreviewPlayer({ source, poster, title, onCopy }) {
         {notPreviewable ? (
           <Box sx={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1, color: "#fff", p: 3, textAlign: "center" }}>
             <WarningAmberIcon />
-            <Typography variant="body2">
-              MPEG-DASH manifests cannot be previewed natively in browsers — conversion to MP4 is required.
-            </Typography>
+            <Typography variant="body2">Convert to MP4 to preview.</Typography>
           </Box>
         ) : (
           <Box
@@ -199,9 +197,6 @@ export default function PreviewPlayer({ source, poster, title, onCopy }) {
         <Box sx={{ mt: 1, p: 1.5, bgcolor: "rgba(179,41,78,0.06)", border: "1px solid rgba(179,41,78,0.25)", borderRadius: 1 }}>
           <Typography variant="body2" color="error" role="note">
             {errMsg}
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
-            You can still copy the direct URL below, or download it if the host allows direct access.
           </Typography>
         </Box>
       ) : null}

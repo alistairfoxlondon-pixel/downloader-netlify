@@ -1,12 +1,7 @@
 import { Alert, Box, Card, CardContent, LinearProgress, Stack, Typography, Skeleton } from "@mui/material";
 import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 
-const STEPS = [
-  "Validating the URL and fetching the source page…",
-  "Inspecting the player configuration and stream APIs…",
-  "Classifying containers (MP4 / M3U8 / other) and probing sizes…",
-  "Signing preview and download links…",
-];
+const STEPS = ["Fetching the page…", "Finding streams…", "Preparing links…"];
 
 export default function LoadingState({ step = 0 }) {
   const current = Math.min(step, STEPS.length - 1);

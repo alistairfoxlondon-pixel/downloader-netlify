@@ -8,21 +8,17 @@ import {
   Button,
   InputAdornment,
   Chip,
-  Stack,
-  Fade,
   CircularProgress,
+  Stack,
 } from "@mui/material";
 import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
 import ContentPasteIcon from "@mui/icons-material/ContentPaste";
 import LinkOutlinedIcon from "@mui/icons-material/LinkOutlined";
 import { brandFont } from "../theme.js";
 
-const EXAMPLES = [
-  "https://streamtape.com/v/74AwoLa6xQCAAQ4/1792525423448.mp4",
-  "https://streamfile.net/2xdgz3t2bphw",
-];
+const EXAMPLE = "https://streamtape.com/v/74AwoLa6xQCAAQ4/1792525423448.mp4";
 
-export default function Hero({ onSubmit, loading, sites, inputRef }) {
+export default function Hero({ onSubmit, loading, inputRef }) {
   const [value, setValue] = useState("");
   const [localError, setLocalError] = useState(null);
   const pasteIdleTimer = useRef(null);
@@ -40,7 +36,7 @@ export default function Hero({ onSubmit, loading, sites, inputRef }) {
     try {
       parsed = new URL(trimmed);
     } catch {
-      setLocalError("That does not look like a valid URL.");
+      setLocalError("That is not a valid URL.");
       return;
     }
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
@@ -64,82 +60,34 @@ export default function Hero({ onSubmit, loading, sites, inputRef }) {
         setLocalError("Clipboard is empty.");
       }
     } catch {
-      setLocalError("Clipboard access was denied — paste with Ctrl/Cmd+V instead.");
+      setLocalError("Clipboard blocked — paste with Ctrl/Cmd+V.");
     }
   };
 
   return (
-    <Box
-      id="top"
-      sx={{
-        position: "relative",
-        overflow: "hidden",
-        pt: { xs: 6, md: 10 },
-        pb: { xs: 5, md: 8 },
-        background:
-          "linear-gradient(180deg, #ffffff 0%, #faf7f8 55%, rgba(72,41,178,0.04) 100%)",
-      }}
-    >
-      {/* Decorative blobs — pure CSS, no image assets needed */}
-      <Box
-        aria-hidden
-        sx={{
-          position: "absolute",
-          width: 340,
-          height: 340,
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(179,41,78,0.10), transparent 70%)",
-          top: -80,
-          right: { xs: -120, md: 40 },
-        }}
-      />
-      <Box
-        aria-hidden
-        sx={{
-          position: "absolute",
-          width: 300,
-          height: 300,
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(72,41,178,0.10), transparent 70%)",
-          bottom: -140,
-          left: -80,
-        }}
-      />
-
-      <Container maxWidth="md" sx={{ position: "relative", textAlign: "center" }}>
-        <Chip
-          label="MP4 · HLS · quality detection · in-browser preview"
-          size="small"
-          color="secondary"
-          variant="outlined"
-          sx={{ mb: 2.5, fontWeight: 600 }}
-        />
+    <Box id="top" sx={{ pt: { xs: 5, md: 8 }, pb: { xs: 4, md: 6 }, bgcolor: "#ffffff" }}>
+      <Container maxWidth="md" sx={{ textAlign: "center" }}>
         <Typography
           variant="h1"
           component="h1"
-          sx={{ fontFamily: brandFont, fontWeight: 700, mb: 2, color: "text.primary", fontSize: { xs: "2.4rem", sm: "3rem", md: "3.6rem" } }}
+          sx={{
+            fontFamily: brandFont,
+            fontWeight: 700,
+            mb: 1,
+            fontSize: { xs: "2.2rem", sm: "2.7rem", md: "3.2rem" },
+          }}
         >
-          Download videos from any{" "}
-          <Box component="span" sx={{ color: "primary.main" }}>
-            supported
-          </Box>{" "}
-          link
+          Download <Box component="span" sx={{ color: "primary.main" }}>videos</Box>
         </Typography>
-        <Typography variant="h5" color="text.secondary" sx={{ mb: 4, mx: "auto", maxWidth: 640, fontWeight: 400, fontSize: { xs: "1.05rem", md: "1.25rem" } }}>
-          Paste a URL — MediaFetch detects direct MP4 and HLS streams, lists every
-          available quality, and lets you preview, copy or download the media.
+        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontWeight: 400 }}>
+          Paste a link — get every quality.
         </Typography>
 
         <Paper
           component="form"
           onSubmit={handleSubmit}
           elevation={0}
-          sx={{
-            p: { xs: 2, md: 2.5 },
-            border: "1px solid rgba(0,0,0,0.13)",
-            boxShadow: "0 10px 30px rgba(52,58,64,0.10)",
-            textAlign: "left",
-          }}
+          sx={{ p: { xs: 1.5, md: 2 }, border: "1px solid rgba(0,0,0,0.13)", textAlign: "left" }}
           aria-label="Video URL form"
         >
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
@@ -147,7 +95,7 @@ export default function Hero({ onSubmit, loading, sites, inputRef }) {
               id="video-url"
               inputRef={inputRef}
               label="Video URL"
-              placeholder="https://example.com/video.mp4 or an m3u8 playlist…"
+              placeholder="https://example.com/video.mp4"
               value={value}
               onChange={(e) => {
                 setValue(e.target.value);
@@ -204,40 +152,20 @@ export default function Hero({ onSubmit, loading, sites, inputRef }) {
             </Button>
           </Stack>
 
-          <Box id="video-url-support" sx={{ mt: 0.5 }}>
-            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" alignItems="center">
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                Try:
-              </Typography>
-              {EXAMPLES.map((ex) => (
-                <Chip
-                  key={ex}
-                  label={ex.replace(/^https?:\/\//, "").slice(0, 40) + (ex.length > 48 ? "…" : "")}
-                  size="small"
-                  variant="outlined"
-                  clickable
-                  onClick={() => {
-                    setValue(ex);
-                    setLocalError(null);
-                  }}
-                  title={ex}
-                  sx={{ fontFamily: "monospace", fontSize: "0.72rem" }}
-                />
-              ))}
-              {sites?.length ? (
-                <Typography variant="caption" color="text.secondary" sx={{ ml: { sm: "auto" } }}>
-                  {sites.length} host families supported · direct .mp4/.m3u8 links always work
-                </Typography>
-              ) : null}
-            </Stack>
+          <Box id="video-url-support" sx={{ mt: 1 }}>
+            <Chip
+              label="Try: streamtape.com/v/74AwoLa6xQCAAQ4"
+              size="small"
+              variant="outlined"
+              clickable
+              onClick={() => {
+                setValue(EXAMPLE);
+                setLocalError(null);
+              }}
+              sx={{ fontFamily: "monospace", fontSize: "0.72rem" }}
+            />
           </Box>
         </Paper>
-
-        <Fade in timeout={600}>
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 2 }} id="hero-caption">
-            Only download content you own or are authorised to access. No DRM bypass.
-          </Typography>
-        </Fade>
       </Container>
     </Box>
   );

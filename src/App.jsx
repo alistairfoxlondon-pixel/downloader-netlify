@@ -1,17 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Alert,
-  Box,
-  Container,
-  Snackbar,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Container, Snackbar } from "@mui/material";
 import NavBar from "./components/NavBar.jsx";
 import Hero from "./components/Hero.jsx";
 import LoadingState from "./components/LoadingState.jsx";
 import ErrorState from "./components/ErrorState.jsx";
 import ResultCard from "./components/ResultCard.jsx";
-import { HowItWorks, Features, SupportedSources, LegalNotice, Footer } from "./components/Sections.jsx";
+import { Footer } from "./components/Sections.jsx";
 import {
   fetchConfig,
   extractVideo,
@@ -103,7 +97,7 @@ export default function App() {
   const handleCopy = useCallback(
     async (text) => {
       const ok = await copyText(text);
-      notify(ok ? "Direct media URL copied to clipboard." : "Could not access the clipboard — copy manually.", ok ? "success" : "error");
+      notify(ok ? "Copied." : "Copy failed.", ok ? "success" : "error");
     },
     [notify],
   );
@@ -128,7 +122,7 @@ export default function App() {
         const large = Number.isFinite(length) && length > 150 * 1024 * 1024;
         triggerDownload(mediaHref(source, { download: true }), undefined);
         if (large) {
-          notify("Large file — if the browser opens it in a tab instead, use Save video as…", "info");
+          notify("Large file — use Save video as…", "info");
         }
       } catch {
         // HEAD not tolerated for some reason — attempt the download anyway.
@@ -158,7 +152,7 @@ export default function App() {
             [jobKey]: { status: status.status, progress: status.progress ?? 0, downloadUrl: status.downloadUrl, error: status.error },
           }));
           if (status.status === "done") {
-            notify("Conversion finished — your MP4 is ready.", "success");
+            notify("MP4 ready.", "success");
             return;
           }
           if (status.status === "error") {
@@ -192,16 +186,7 @@ export default function App() {
       <NavBar />
 
       <Box component="main" id="main" sx={{ flex: 1 }}>
-        <Hero onSubmit={handleSubmit} loading={phase === "loading"} sites={config?.sites} inputRef={inputRef} />
-
-        {configError ? (
-          <Container maxWidth="md" sx={{ mb: 2 }}>
-            <Alert severity="warning">
-              Configuration endpoint unavailable ({configError.code}) — extraction still works, but supported-host and
-              conversion-service information may be missing.
-            </Alert>
-          </Container>
-        ) : null}
+        <Hero onSubmit={handleSubmit} loading={phase === "loading"} inputRef={inputRef} />
 
         <Container maxWidth="lg" sx={{ pb: { xs: 4, md: 6 } }}>
           <Box
@@ -218,9 +203,6 @@ export default function App() {
             {phase === "error" ? <ErrorState error={error} onRetry={() => lastUrl && handleSubmit(lastUrl)} /> : null}
             {phase === "success" && result ? (
               <>
-                <Typography variant="overline" color="secondary" sx={{ fontWeight: 700, letterSpacing: 1.5, display: "block", maxWidth: 980, mx: "auto", mb: 1 }}>
-                  EXTRACTION RESULT
-                </Typography>
                 <ResultCard
                   result={result}
                   workerHealthy={Boolean(result.worker?.healthy ?? config?.worker?.healthy)}
@@ -234,13 +216,9 @@ export default function App() {
           </Box>
         </Container>
 
-        <HowItWorks />
-        <SupportedSources config={config} />
-        <Features />
-        <LegalNotice />
       </Box>
 
-      <Footer config={config} />
+      <Footer />
 
       <Snackbar
         open={snack.open}

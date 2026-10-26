@@ -108,7 +108,7 @@ let theme = createTheme({
 
 theme = responsiveFontSizes(theme, { breakpoints: ["sm", "md", "lg"] });
 
-/** Brand/display font used for the logotype and hero headline (template uses Baloo Bhaijaan). */
-export const brandFont = "'Baloo Bhaijaan', cursive";
+/** Brand/display font (self-hosted via @fontsource — no external CDN needed). */
+export const brandFont = "'Baloo Bhaijaan 2', 'Baloo Bhaijaan', cursive";
 
 export default theme;
