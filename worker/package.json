@@ -1,0 +1,13 @@
+{
+  "name": "mediafetch-worker",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "External ffmpeg conversion worker for MediaFetch (HLS/DASH -> MP4)",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

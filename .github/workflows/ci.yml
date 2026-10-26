@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Unit tests + production build + deploy checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Unit & handler tests
+        run: npm test
+      - name: Production build (vite)
+        run: npm run build
+      - name: Netlify deployment config checks
+        run: node scripts/verify-deploy.mjs
+
+  verify-sources:
+    name: Live verification of the 7 supplied URLs
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install ffprobe (validation of downloaded files)
+        run: which ffprobe || sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Verify every supplied source URL
+        run: npm run verify:sources
+      - name: Show report
+        if: always()
+        run: cat reports/TEST_REPORT.generated.md || true
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-test-report
+          path: reports/
+          if-no-files-found: warn
+          retention-days: 14
+
+  e2e:
+    name: Browser UI tests (desktop + mobile)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run E2E suite against the production build
+        run: npx playwright test
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 14
