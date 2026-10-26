@@ -28,4 +28,4 @@ jobs:
       - name: Replay server-side safeFetch against the winner
         if: always()
         shell: bash
-        run: node scripts/probe-classify.mjs "https://media.w3.org/2010/05/sintel/trailer.mp4" || true
+        run: node scripts/probe-classify.mjs "https://mdn.github.io/shared-assets/videos/flower.mp4" || true

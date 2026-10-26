@@ -5,10 +5,11 @@ import { test, expect } from "@playwright/test";
  *
  * Sources:
  * - The full interaction flow (extract → preview → copy → download with real
- *   bytes) runs against a stable, public sample MP4 hosted by W3C (Sintel
- *   trailer — Blender Foundation, CC-BY). Asset reachability/FTYF validity is
- *   itself asserted in CI by scripts/probe-e2e-assets.sh (asset-probe job),
- *   which confirmed HTTP 206 video/mp4 from GitHub runners.
+ *   bytes) runs against a stable, public CC0 sample MP4 served by GitHub
+ *   Pages (mdn.github.io/shared-assets — no bot-challenge, so server-side
+ *   classification works; hosts like media.w3.org sit behind Cloudflare JS
+ *   challenges that Node's HTTP stack cannot pass — see asset-probe results).
+ *   Reachability/FTYP validity is asserted in CI by scripts/probe-e2e-assets.sh.
  * - The Streamtape page from the supplied URL list is exercised for honest
  *   extraction/result rendering. Preview/download for third-party hosts are
  *   verified by `npm run verify:sources` (live report), because some hosts
@@ -17,7 +18,7 @@ import { test, expect } from "@playwright/test";
  */
 
 const STREAMTAPE_URL = "https://streamtape.com/v/74AwoLa6xQCAAQ4/1792525423448.mp4";
-const DIRECT_URL = "https://media.w3.org/2010/05/sintel/trailer.mp4";
+const DIRECT_URL = "https://mdn.github.io/shared-assets/videos/flower.mp4";
 
 function watchErrors(page) {
   const errors = [];
@@ -98,7 +99,7 @@ test.describe("UI", () => {
 
     // Result card with an MP4 row/card (rows on desktop, cards on mobile).
     await expect(mp4FormatTarget(page)).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByRole("heading", { level: 2 }).filter({ hasText: /sintel|trailer/i })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2 }).filter({ hasText: /flower/i })).toBeVisible();
 
     // Preview player reached a real media state with a real source.
     const video = page.locator("video.preview-video");
