@@ -100,7 +100,7 @@ Other scripts:
 |---|---|
 | `npm run build` | production bundle → `dist/` |
 | `npm run preview` | serve `dist/` with `/api` proxy (4173) |
-| `npm test` | 87 unit + handler tests (vitest) |
+| `npm test` | 89 unit + handler tests (vitest) |
 | `npm run test:e2e` | Playwright desktop+mobile flows (needs `npx playwright install chromium`) |
 | `npm run verify:sources` | live verification of the 7 supplied URLs (needs internet) |
 | `node scripts/verify-deploy.mjs` | Netlify config / bundle / secret-leak checks |
