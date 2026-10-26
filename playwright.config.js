@@ -40,6 +40,8 @@ export default defineConfig({
       // window across two viewport projects and retries — give the local
       // emulator headroom. Production defaults stay strict.
       env: {
+        FETCH_TIMEOUT_MS: "8000",
+        MEDIA_FETCH_TIMEOUT_MS: "12000",
         EXTRACT_BURST: "40",
         EXTRACT_PER_MIN: "60",
         MEDIA_BURST: "240",

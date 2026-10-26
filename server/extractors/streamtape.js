@@ -143,7 +143,6 @@ function extractPageSize(html) {
 export async function extract(url) {
   const page = await safeFetchText(url, {
     accept: "text/html,application/xhtml+xml,*/*;q=0.8",
-    timeoutMs: 15000,
   });
   const html = stripComments(page.text);
   const vid = mediaId(url);

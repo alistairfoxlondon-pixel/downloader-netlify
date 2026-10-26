@@ -1,5 +1,5 @@
 import { AppError } from "../lib/errors.js";
-import { safeFetch, sniffContainer } from "../lib/safehttp.js";
+import { safeFetch, sniffContainer, DEFAULT_TIMEOUT_MS } from "../lib/safehttp.js";
 import { parseM3u8, isDrmProtected } from "../lib/hls.js";
 
 /** Parse a human size string like "2.64 MB" into bytes. */
@@ -66,7 +66,7 @@ export async function classifyMediaUrl(url, opts = {}) {
       range: "bytes=0-2047",
       referer: withExtraHeaders ? opts.referer : undefined,
       origin: withExtraHeaders ? opts.origin : undefined,
-      timeoutMs: opts.timeoutMs ?? 15000,
+      timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
       maxBytes: 64 * 1024,
       truncateOk: true, // servers that ignore Range may reply with the full body
       accept: "*/*",
@@ -152,7 +152,7 @@ export async function fetchAndParseHls(url, opts = {}) {
     origin: opts.origin,
     accept: "application/vnd.apple.mpegurl,application/x-mpegURL,text/plain,*/*",
     maxBytes: 512 * 1024,
-    timeoutMs: opts.timeoutMs ?? 15000,
+    timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
   });
   if (res.status >= 400) {
     throw new AppError("E_MEDIA_UNREACHABLE", `Could not read the HLS playlist (HTTP ${res.status}).`, {

@@ -120,7 +120,7 @@ export async function extract(url) {
   }
 
   // ---- HTML page: look for embedded media -------------------------------
-  const page = await safeFetchText(url, { maxBytes: 3 * 1024 * 1024, timeoutMs: 15000 });
+  const page = await safeFetchText(url, { maxBytes: 3 * 1024 * 1024 });
   if (!looksHtml(page.contentType) && !/^\s*</.test(page.text)) {
     throw new AppError("E_NO_MEDIA", "That URL did not return an HTML page or a recognised media file.", { status: 422 });
   }

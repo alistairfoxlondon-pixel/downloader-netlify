@@ -29,7 +29,7 @@ export async function extract(url) {
     });
   }
 
-  const page = await safeFetchText(url, { timeoutMs: 15000 });
+  const page = await safeFetchText(url);
   const origin = new URL(page.url).origin;
 
   if (looksHtml(page.contentType) === false && page.contentType.includes("json")) {

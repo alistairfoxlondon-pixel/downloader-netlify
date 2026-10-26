@@ -1,6 +1,13 @@
 /** Run the Vite dev server and the local functions emulator together. */
 import { spawn } from "node:child_process";
 
+// Preview/development: answer quickly with a structured JSON error instead of
+// letting any gateway in front of the dev server time out on a silent upstream
+// hang (that surfaces to the UI as a bare, unfriendly "HTTP 504").
+// Production defaults are unchanged; explicit env values still win.
+process.env.FETCH_TIMEOUT_MS ||= "6000";
+process.env.MEDIA_FETCH_TIMEOUT_MS ||= "12000";
+
 const procs = [];
 
 function run(name, cmd, args) {

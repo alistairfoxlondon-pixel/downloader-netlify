@@ -61,7 +61,7 @@ export async function extract(url) {
   if (!mid) {
     throw new AppError("E_BAD_URL", "This does not look like a LuluStream video link.", { status: 400 });
   }
-  const page = await safeFetchText(url, { timeoutMs: 15000, headers: { ...NAVIGATION_HEADERS } });
+  const page = await safeFetchText(url, { headers: { ...NAVIGATION_HEADERS } });
   const html = stripComments(page.text);
 
   const blobs = [html];

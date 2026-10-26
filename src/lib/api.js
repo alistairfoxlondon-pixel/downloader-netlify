@@ -1,5 +1,14 @@
 /** Client-side API helpers + formatting utilities. */
 
+/** Friendly text when a response has no structured error (gateway/edge504, HTML error page…). */
+function httpFallbackMessage(status) {
+  if (status === 429) return "Too many requests — wait a moment and try again.";
+  if (status === 504 || status === 502 || status === 500) return "The server did not answer in time — try again.";
+  if (status === 403 || status === 401) return "Request blocked — try again in a moment.";
+  if (status === 404) return "Not found.";
+  return "Request failed — try again.";
+}
+
 async function parseJsonSafe(res) {
   let data = null;
   try {
@@ -30,8 +39,8 @@ export async function extractVideo(url, signal) {
   });
   const { data } = await parseJsonSafe(res);
   if (!res.ok || !data?.ok) {
-    const err = new Error(data?.error?.message || `Request failed (HTTP ${res.status}).`);
-    err.code = data?.error?.code || "E_INTERNAL";
+    const err = new Error(data?.error?.message || httpFallbackMessage(res.status));
+    err.code = data?.error?.code || (res.status === 429 ? "E_RATE_LIMITED" : "E_INTERNAL");
     err.status = res.status;
     throw err;
   }
@@ -145,9 +154,12 @@ export const ERROR_HINTS = {
 };
 
 export function normalizeError(err) {
+  const raw = err?.message || "";
+  // Browser-level fetch failures (server down / CORS / offline).
+  const netLike = !err?.code && /failed to fetch|networkerror|load failed|network request failed/i.test(raw);
   return {
-    code: err?.code || "E_INTERNAL",
-    message: err?.message || "Something went wrong.",
+    code: err?.code || (netLike ? "E_NET" : "E_INTERNAL"),
+    message: netLike ? "Cannot reach the server — try again." : raw || "Something went wrong.",
     hint: ERROR_HINTS[err?.code] || null,
   };
 }
