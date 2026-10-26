@@ -27,6 +27,20 @@ function watchErrors(page) {
   return errors;
 }
 
+/**
+ * The formats list renders as table rows on desktop and as stacked cards on
+ * mobile — the union locator matches whichever is in play.
+ * Scoped to the formats container so page copy mentioning "MP4" can't match.
+ */
+function mp4FormatTarget(page) {
+  const rows = page.getByRole("row").filter({ hasText: "MP4" }).first();
+  const cards = page
+    .locator('[aria-label="Available formats"] .MuiCard-root')
+    .filter({ hasText: "MP4" })
+    .first();
+  return rows.or(cards);
+}
+
 test.describe("UI", () => {
   test("homepage renders without console errors and the URL form works", async ({ page }) => {
     const errors = watchErrors(page);
@@ -68,12 +82,21 @@ test.describe("UI", () => {
   test("direct MP4: extract → preview element → clipboard copy → genuine MP4 download", async ({ page }) => {
     watchErrors(page);
     await page.goto("/");
+    // Capture the extract API response so failures print the server's reason.
+    const extractPromise = page.waitForResponse(
+      (r) => r.url().includes("/api/extract") && r.request().method() === "POST",
+      { timeout: 60_000 },
+    );
     await page.getByLabel("Video URL", { exact: true }).fill(DIRECT_URL);
     await page.getByRole("button", { name: "Fetch video" }).click();
+    const extractResp = await extractPromise;
+    const extractBody = await extractResp.json().catch(() => ({}));
+    expect(extractBody, `extract API → HTTP ${extractResp.status()}: ${JSON.stringify(extractBody).slice(0, 600)}`).toMatchObject({
+      ok: true,
+    });
 
-    // Result card with an MP4 row.
-    const row = page.getByRole("row").filter({ hasText: "MP4" }).first();
-    await expect(row).toBeVisible({ timeout: 60_000 });
+    // Result card with an MP4 row/card (rows on desktop, cards on mobile).
+    await expect(mp4FormatTarget(page)).toBeVisible({ timeout: 60_000 });
     await expect(page.getByRole("heading", { level: 2 }).filter({ hasText: /ForBiggerBlazes/i })).toBeVisible();
 
     // Preview player reached a real media state with a real source.
@@ -143,7 +166,7 @@ test.describe("UI", () => {
     await page.getByRole("button", { name: "Fetch video" }).click();
 
     const row = page.getByRole("row").filter({ hasText: "MP4" });
-    const card = page.locator(".MuiCard-root").filter({ hasText: "MP4" });
+    const card = page.locator('[aria-label="Available formats"] .MuiCard-root').filter({ hasText: "MP4" });
     await expect(row.or(card).first()).toBeVisible({ timeout: 60_000 });
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
