@@ -1,0 +1,31 @@
+name: asset-probe
+
+# Probes candidate public-domain sample MP4s used by the E2E suite.
+# Runs only when this workflow file or the probe script changes (plus manual
+# re-runs via empty commits). Results are surfaced as check annotations, which
+# are readable via the REST API without downloading logs.
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/asset-probe.yml"
+      - "scripts/probe-e2e-assets.sh"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe E2E sample assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: Probe candidate MP4 assets
+        shell: bash
+        run: bash scripts/probe-e2e-assets.sh
+      - name: Replay server-side safeFetch against the winner
+        if: always()
+        shell: bash
+        run: node scripts/probe-classify.mjs "https://mdn.github.io/shared-assets/videos/flower.mp4" || true

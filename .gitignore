@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.netlify/
+probe/
+reports/*.generated.md
+playwright-report/
+test-results/
+worker/data/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
