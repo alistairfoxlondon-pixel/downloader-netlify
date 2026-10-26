@@ -48,6 +48,10 @@ export const CONTAINER_EXT = {
  * probe when the extension is missing/ambiguous. Verifies the URL is actually
  * reachable at the same time (status 200/206).
  *
+ * With `opts.expectMedia` a response that is really an HTML page (captcha
+ * interstitial, “get link” wall, error page…) throws E_NOT_MEDIA instead of
+ * being silently classified — callers then fall back to alternative links.
+ *
  * @returns {Promise<{container: string, contentType: string|null, totalBytes: number|null,
  *   head: Buffer, supportsRange: boolean, status: number, finalUrl: string}>}
  */
@@ -94,6 +98,19 @@ export async function classifyMediaUrl(url, opts = {}) {
     else if (ct.includes("dash+xml")) container = "mpd";
     else if (ct.startsWith("video/")) container = "other";
     else container = "unknown";
+  }
+
+  // Non-media response detection (HTML walls, captcha pages, tiny error docs).
+  const looksLikePage =
+    sniffed === "unknown" &&
+    (/text\/html|application\/xhtml/i.test(res.contentType || "") ||
+      /^\s*<!doctype html|^\s*<html/i.test(res.body.subarray(0, 200).toString("latin1")));
+  if (opts.expectMedia && (container === "unknown" || looksLikePage)) {
+    throw new AppError(
+      "E_NOT_MEDIA",
+      `The host returned ${res.contentType || "a non-media response"} instead of video bytes (possible CAPTCHA, IP block or expired link).`,
+      { status: 502, details: { httpStatus: res.status, contentType: res.contentType || null } },
+    );
   }
 
   return {

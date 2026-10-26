@@ -125,6 +125,47 @@ describe("streamtape extractor", () => {
     expect(s.requiresConversion).toBe(false);
   }, 20000);
 
+  it("falls back to the raw get_video link when &stream=1 serves an HTML wall", async () => {
+    installRouter((url) => {
+      if (url.startsWith("https://streamtape.com/v/")) {
+        return resp(pageHtml, { contentType: "text/html; charset=utf-8" });
+      }
+      if (url.includes("get_video") && url.includes("stream=1")) {
+        // Some mirrors reject the stream variant with an HTML interstitial.
+        return resp("<html><body>Please click the download button</body></html>", { contentType: "text/html" });
+      }
+      if (url.includes("get_video")) return rangeMp4(2771195);
+      return undefined;
+    });
+
+    const out = await extractFromUrl(PAGE_URL);
+    const s = out.sources[0];
+    expect(s.verified).toBe(true);
+    expect(s.protocol).toBe("mp4");
+    expect(s.url).not.toContain("stream=1");
+    expect(s.sizeBytes).toBe(2771195);
+  }, 20000);
+
+  it("never claims MP4 when every candidate returns HTML", async () => {
+    installRouter((url) => {
+      if (url.startsWith("https://streamtape.com/v/")) {
+        return resp(pageHtml, { contentType: "text/html; charset=utf-8" });
+      }
+      if (url.includes("get_video")) {
+        return resp("<html><body>captcha wall</body></html>", { contentType: "text/html" });
+      }
+      return undefined;
+    });
+
+    const out = await extractFromUrl(PAGE_URL);
+    const s = out.sources[0];
+    expect(s.verified).toBe(false);
+    expect(s.protocol).toBe("unknown");
+    expect(s.container).toBe("unknown");
+    expect(out.warnings.map((w) => w.code)).toContain("W_UNVERIFIED");
+    expect(s.note).toMatch(/cannot be confirmed/i);
+  }, 20000);
+
   it("reports E_NOT_FOUND for deleted videos", async () => {
     installRouter((url) => {
       if (url.startsWith("https://streamtape.com/v/")) {

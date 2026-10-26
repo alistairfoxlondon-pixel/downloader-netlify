@@ -2,7 +2,25 @@ import { AppError } from "./errors.js";
 import { assertSafeUrlWithDns, parseHttpUrl } from "./urlguard.js";
 
 export const DEFAULT_UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36";
+
+/**
+ * A coherent set of Chromium navigation headers for plain document GETs
+ * (address-bar navigation style). Hosts behind basic bot walls reject
+ * requests that look like a bare script (no client hints, no sec-fetch).
+ * Do NOT send these alongside cross-origin XHR headers (origin/referer)
+ * — that combination is inconsistent and can itself trigger WAFs.
+ */
+export const NAVIGATION_HEADERS = {
+  "sec-ch-ua": '"Chromium";v="142", "Google Chrome";v="142", "Not?A_Brand";v="99"',
+  "sec-ch-ua-mobile": "?0",
+  "sec-ch-ua-platform": '"Windows"',
+  "sec-fetch-dest": "document",
+  "sec-fetch-mode": "navigate",
+  "sec-fetch-site": "none",
+  "sec-fetch-user": "?1",
+  "upgrade-insecure-requests": "1",
+};
 
 export const MAX_PAGE_BYTES = Number(process.env.MAX_PAGE_BYTES || 3 * 1024 * 1024);
 export const DEFAULT_TIMEOUT_MS = Number(process.env.FETCH_TIMEOUT_MS || 15000);

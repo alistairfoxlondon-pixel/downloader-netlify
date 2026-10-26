@@ -88,7 +88,7 @@ async function probePreview(source) {
       const res = await safeFetch(source.url, {
         accept: "application/vnd.apple.mpegurl,*/*",
         maxBytes: 512 * 1024,
-        referer: undefined,
+        referer: source.referrer || undefined,
         timeoutMs: 20000,
       });
       const text = res.body.toString("utf8");
@@ -144,6 +144,7 @@ async function verifyDownload(source) {
     });
     if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
     out.started = true;
+    out.contentType = res.headers.get("content-type");
     const ws = fs.createWriteStream(tmp);
     const reader = res.body.getReader();
     let total = 0;
@@ -173,6 +174,11 @@ async function verifyDownload(source) {
     const hasMoov = data.includes(Buffer.from("moov"));
     const hasMdat = data.includes(Buffer.from("mdat"));
     out.structure = { ftyp: hasFtyp, moov: hasMoov, mdat: hasMdat };
+    if (out.container === "unknown" && data.length) {
+      // Keep a short sanitized sample of what the server actually sent so the
+      // report can show, e.g., an HTML CAPTCHA wall instead of guessing.
+      out.responseHead = data.subarray(0, 240).toString("latin1").replace(/\s+/g, " ").trim();
+    }
     if (out.completed && (!hasFtyp || !hasMoov)) {
       out.error = `structure check failed (ftyp=${hasFtyp}, moov=${hasMoov}) — not a valid MP4`;
     }
@@ -330,7 +336,10 @@ function renderMarkdown(rows) {
     );
     checks.push(
       dl?.ffprobe
-        ? ["7. File is a valid video", dl.ffprobe.error ? `FAIL — ffprobe: ${dl.ffprobe.error}` : `PASS — ffprobe: ${dl.ffprobe.videoCodec} ${dl.ffprobe.width || "?"}×${dl.ffprobe.height || "?"}, ${dl.ffprobe.durationSec || "?"}s, format=${dl.ffprobe.format}`]
+        ? ["7. File is a valid video",
+            dl.ffprobe.error
+              ? `FAIL — ffprobe: ${dl.ffprobe.error}${dl.contentType ? ` · content-type=${dl.contentType}` : ""}${dl.responseHead ? ` · server sent: “${dl.responseHead.slice(0, 160)}”` : ""}`
+              : `PASS — ffprobe: ${dl.ffprobe.videoCodec} ${dl.ffprobe.width || "?"}×${dl.ffprobe.height || "?"}, ${dl.ffprobe.durationSec || "?"}s, format=${dl.ffprobe.format}`]
         : ["7. File is a valid video", dl?.attempted ? "NOT VERIFIED (ffprobe unavailable or download incomplete)" : "N/A"],
     );
     checks.push(

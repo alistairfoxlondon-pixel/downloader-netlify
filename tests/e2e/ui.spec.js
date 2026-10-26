@@ -28,13 +28,13 @@ test.describe("homepage", () => {
     const w = watchErrors(page);
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    await expect(page.getByLabel("Video URL")).toBeVisible();
+    await expect(page.getByLabel("Video URL", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Fetch video" })).toBeVisible();
     await expect(page.getByRole("heading", { name: /three steps/i })).toBeVisible();
 
     // keyboard navigation: focus reaches the input
-    await page.getByLabel("Video URL").focus();
-    await expect(page.getByLabel("Video URL")).toBeFocused();
+    await page.getByLabel("Video URL", { exact: true }).focus();
+    await expect(page.getByLabel("Video URL", { exact: true })).toBeFocused();
 
     expect(w.pageErrors, `page errors: ${w.pageErrors.join("\n")}`).toHaveLength(0);
     expect(fatalConsole(w.consoleErrors), `console errors: ${fatalConsole(w.consoleErrors).join("\n")}`).toHaveLength(0);
@@ -54,9 +54,9 @@ test.describe("error handling", () => {
   test("unreachable domain shows a structured error, not a crash", async ({ page }) => {
     const w = watchErrors(page);
     await page.goto("/");
-    await page.getByLabel("Video URL").fill("https://definitely-not-a-real-host-for-tests.invalid/v.mp4");
+    await page.getByLabel("Video URL", { exact: true }).fill("https://definitely-not-a-real-host-for-tests.invalid/v.mp4");
     await page.getByRole("button", { name: "Fetch video" }).click();
-    const alert = page.getByRole("alert").filter({ hasText: "Could not fetch" });
+    const alert = page.getByRole("alert").filter({ hasText: "Could not fetch" }).first();
     await expect(alert).toBeVisible();
     expect(w.pageErrors).toHaveLength(0);
   });
@@ -69,13 +69,13 @@ test.describe("streamtape end-to-end", () => {
     test.slow();
     const w = watchErrors(page);
     await page.goto("/");
-    await page.getByLabel("Video URL").fill(STREAMTAPE_URL);
+    await page.getByLabel("Video URL", { exact: true }).fill(STREAMTAPE_URL);
     await page.getByRole("button", { name: "Fetch video" }).click();
 
     // Result card appears with at least one MP4 row.
     const row = page.getByRole("row").filter({ hasText: "MP4" }).first();
     await expect(row).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByRole("heading", { level: 2 })).toContainText(/1792525423448/);
+    await expect(page.getByRole("heading", { level: 2 }).filter({ hasText: "1792525423448" })).toBeVisible();
 
     // Preview element exists and is a real video.
     const video = page.locator("video.preview-video").first();
@@ -100,7 +100,8 @@ test.describe("streamtape end-to-end", () => {
 
     // Download produces a real file (starts and completes).
     const downloadPromise = page.waitForEvent("download", { timeout: 60_000 });
-    await page.getByRole("button", { name: /^Download$/ }).first().click();
+    // Accessible name comes from aria-label: "Download <quality> source as file".
+    await page.getByRole("button", { name: /source as file/i }).first().click();
     const download = await downloadPromise;
     const tmpPath = await download.path();
     expect(tmpPath).toBeTruthy();
@@ -123,7 +124,7 @@ test.describe("mobile flow", () => {
     test.slow();
     const w = watchErrors(page);
     await page.goto("/");
-    await page.getByLabel("Video URL").fill(STREAMTAPE_URL);
+    await page.getByLabel("Video URL", { exact: true }).fill(STREAMTAPE_URL);
     await page.getByRole("button", { name: "Fetch video" }).click();
     const row = page.getByRole("row").filter({ hasText: "MP4" }).first();
     // On mobile the table renders as stacked cards without role=row; fall back:

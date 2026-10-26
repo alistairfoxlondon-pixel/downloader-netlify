@@ -1,5 +1,5 @@
 import { AppError } from "../lib/errors.js";
-import { safeFetchText } from "../lib/safehttp.js";
+import { safeFetchText, NAVIGATION_HEADERS } from "../lib/safehttp.js";
 import { scriptBlocks, pageTitle, ogMeta, firstH1, stripComments, decodeEntities } from "../lib/dom.js";
 import { unpackScripts, expandFromCharCodes } from "../lib/packer.js";
 import { absolutize, classifyMediaUrl } from "./_shared.js";
@@ -61,7 +61,7 @@ export async function extract(url) {
   if (!mid) {
     throw new AppError("E_BAD_URL", "This does not look like a LuluStream video link.", { status: 400 });
   }
-  const page = await safeFetchText(url, { timeoutMs: 15000 });
+  const page = await safeFetchText(url, { timeoutMs: 15000, headers: { ...NAVIGATION_HEADERS } });
   const html = stripComments(page.text);
 
   const blobs = [html];

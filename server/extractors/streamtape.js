@@ -178,23 +178,29 @@ export async function extract(url) {
     );
   }
 
-  let mediaUrl = candidates[0];
+  // `stream=1` asks Streamtape for an inline (non-attachment) response; some
+  // mirrors reject it and return an HTML interstitial instead of bytes.
+  // Try candidates in order and keep the first whose response is genuinely a
+  // media file (expectMedia → HTML/captcha walls throw instead of "passing").
+  const first = candidates[0];
+  const second = first.endsWith("&stream=1") ? first.slice(0, -"&stream=1".length) : `${first}${first.includes("?") ? "&" : "?"}stream=1`;
+  const tried = new Set();
+  let mediaUrl = first;
   let verified = null;
-  // `stream=1` asks Streamtape for an inline (non-attachment) response, which
-  // is what we want for preview + our own Content-Disposition handling.
-  const streamUrl = `${mediaUrl}${mediaUrl.includes("?") ? "&" : "?"}stream=1`;
-  try {
-    verified = await classifyMediaUrl(streamUrl, { referer: page.url });
-    mediaUrl = streamUrl;
-  } catch {
+  for (const candidate of [first, second]) {
+    if (tried.has(candidate)) continue;
+    tried.add(candidate);
     try {
-      verified = await classifyMediaUrl(mediaUrl, { referer: page.url });
+      const probe = await classifyMediaUrl(candidate, { referer: page.url, timeoutMs: 10000, expectMedia: true });
+      mediaUrl = probe.finalUrl || candidate;
+      verified = probe;
+      break;
     } catch {
-      verified = null; // link found but not probeable from this network — report honestly
+      // try next candidate; report honestly at the end if none yield media
     }
   }
 
-  const container = verified?.container || "mp4";
+  const container = verified ? verified.container || "mp4" : "unknown";
   const sizeBytes = verified?.totalBytes ?? extractPageSize(html);
 
   return {
@@ -208,17 +214,19 @@ export async function extract(url) {
       {
         url: mediaUrl,
         container,
-        protocol: container === "m3u8" ? "hls" : "mp4",
+        protocol: verified && container === "mp4" ? "mp4" : container === "m3u8" ? "hls" : "unknown",
         quality: null,
         sizeBytes,
         ipBound: true,
         verified: Boolean(verified),
-        requiresConversion: container !== "mp4",
+        requiresConversion: verified ? container !== "mp4" : false,
         note: verified
           ? "Direct MP4. Link is signed for the fetching IP, so preview/download is proxied by this service."
-          : "Direct MP4 link found, but it could not be probed from this network — try preview/download and check the result.",
+          : "Direct link found in the page, but every probe returned a non-media response (CAPTCHA/bot wall or IP restriction). MP4 availability cannot be confirmed — preview may still work in a browser session.",
       },
     ],
-    warnings: verified ? [] : [{ code: "W_UNVERIFIED", message: "Media URL could not be verified (probe failed)." }],
+    warnings: verified
+      ? []
+      : [{ code: "W_UNVERIFIED", message: "Media URL could not be verified (all candidates returned non-media bytes)." }],
   };
 }

@@ -60,7 +60,7 @@ export default async function handler(request) {
         verified: s.verified !== false,
         ipBound: Boolean(s.ipBound),
         requiresConversion: Boolean(s.requiresConversion),
-        downloadable: s.protocol === "mp4" ? "direct" : worker.healthy ? "worker" : false,
+        downloadable: s.protocol === "mp4" ? "direct" : s.verified !== false && worker.healthy ? "worker" : false,
         note: s.note || null,
         previewUrl: `/api/media?t=${encodeURIComponent(previewToken)}`,
         downloadUrl: `/api/media?t=${encodeURIComponent(downloadToken)}`,
