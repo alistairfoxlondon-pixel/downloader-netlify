@@ -194,6 +194,45 @@ seg0.ts
     expect(res.headers.get("access-control-allow-headers")).toContain("range");
   });
 
+  it("retries once when upstream answers with an HTML interstitial, then streams the real file", async () => {
+    let calls = 0;
+    installRouter(() => {
+      calls += 1;
+      if (calls === 1) {
+        return new Response("<html><body>Checking your browser…</body></html>", {
+          status: 200,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        });
+      }
+      return new Response(FTYP, {
+        status: 200,
+        headers: { "content-type": "video/mp4", "content-length": String(FTYP.length), "accept-ranges": "bytes" },
+      });
+    });
+    const token = signMediaToken({ url: "https://cdn.example.org/movie.mp4", mode: "proxy", name: "Movie.mp4" });
+    const res = await mediaHandler(new Request(`https://app.local/api/media?t=${encodeURIComponent(token)}`));
+    expect(res.status).toBe(200);
+    const buf = Buffer.from(await res.arrayBuffer());
+    expect(buf.subarray(4, 8).toString("latin1")).toBe("ftyp");
+    expect(calls).toBe(2);
+  });
+
+  it("refuses honestly when upstream keeps serving HTML — never streams a page as a file", async () => {
+    installRouter(
+      () =>
+        new Response("<html><body>captcha</body></html>", {
+          status: 200,
+          headers: { "content-type": "text/html" },
+        }),
+    );
+    const token = signMediaToken({ url: "https://cdn.example.org/movie.mp4", mode: "proxy", name: "Movie.mp4" });
+    const res = await mediaHandler(new Request(`https://app.local/api/media?t=${encodeURIComponent(token)}`));
+    expect(res.status).toBe(502);
+    const data = await res.json();
+    expect(data.error.code).toBe("E_ACCESS_DENIED");
+    expect(data.error.message).toMatch(/web page instead of the video/i);
+  });
+
   it("maps upstream 403 to a friendly proxy error (no raw leak)", async () => {
     const token = signMediaToken({ url: "https://cdn.example.org/gone.mp4", mode: "proxy" });
     installRouter(() => new Response("forbidden", { status: 403 }));

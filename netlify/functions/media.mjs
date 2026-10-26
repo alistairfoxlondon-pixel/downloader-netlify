@@ -180,30 +180,35 @@ async function proxyResponse(request, verified, { forceAttachment = false } = {}
     throw new AppError("E_BAD_RANGE", "Unsupported Range header.", { status: 400 });
   }
 
-  const upstream = await safeFetch(verified.url, {
-    stream: true,
-    range: clientRange || undefined,
-    referer: verified.ref || undefined,
-    timeoutMs: Number(process.env.MEDIA_FETCH_TIMEOUT_MS || 20000),
-  });
-
-  if (upstream.status >= 400) {
-    upstream.stream?.cancel?.().catch(() => {});
-    const friendly =
-      upstream.status === 404
-        ? "The media file is no longer available (link expired or file removed)."
-        : upstream.status === 403 || upstream.status === 401
-          ? "The media server rejected this request — the link may be IP-bound, expired, or captcha-protected."
-          : `The media server returned HTTP ${upstream.status}.`;
-    throw new AppError(upstream.status === 404 ? "E_MEDIA_GONE" : "E_ACCESS_DENIED", friendly, {
-      status: 502,
-      details: { upstreamStatus: upstream.status },
+  const fetchUpstream = () =>
+    safeFetch(verified.url, {
+      stream: true,
+      range: clientRange || undefined,
+      referer: verified.ref || undefined,
+      timeoutMs: Number(process.env.MEDIA_FETCH_TIMEOUT_MS || 20000),
     });
-  }
 
-  if (!upstream.stream) {
-    throw new AppError("E_UPSTREAM", "The media server sent an empty body.", { status: 502 });
-  }
+  const ensureUsable = (res) => {
+    if (res.status >= 400) {
+      res.stream?.cancel?.().catch(() => {});
+      const friendly =
+        res.status === 404
+          ? "The media file is no longer available (link expired or file removed)."
+          : res.status === 403 || res.status === 401
+            ? "The media server rejected this request — the link may be IP-bound, expired, or captcha-protected."
+            : `The media server returned HTTP ${res.status}.`;
+      throw new AppError(res.status === 404 ? "E_MEDIA_GONE" : "E_ACCESS_DENIED", friendly, {
+        status: 502,
+        details: { upstreamStatus: res.status },
+      });
+    }
+    if (!res.stream) {
+      throw new AppError("E_UPSTREAM", "The media server sent an empty body.", { status: 502 });
+    }
+    return res;
+  };
+
+  let upstream = ensureUsable(await fetchUpstream());
 
   const headers = { ...BASE_CORS, "cache-control": "private, max-age=300" };
   for (const h of ["content-type", "content-length", "content-range", "accept-ranges", "etag", "last-modified"]) {
@@ -219,11 +224,69 @@ async function proxyResponse(request, verified, { forceAttachment = false } = {}
     return new Response(null, { status: upstream.status, headers });
   }
 
-  // ---- HLS playlist rewriting -------------------------------------------
-  if (wantsPlaylist && !clientRange) {
+  // ---- Byte peek: never stream a web page as if it were the video ---------
+  // Hosts intermittently answer media fetches with an HTML interstitial
+  // (CAPTCHA/bot wall). Read the first bytes, retry the upstream request once
+  // on a fresh connection, and fail honestly if it still is not media.
+  const peek = async (stream) => {
+    const reader = stream.getReader();
     const chunks = [];
     let total = 0;
-    const reader = upstream.stream.getReader();
+    while (total < 96) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      total += value.byteLength;
+    }
+    return { reader, head: Buffer.concat(chunks.map((c) => Buffer.from(c))) };
+  };
+  const looksLikePage = (ctype, head) => {
+    if (PLAYLIST_RE.test(ctype || "")) return false;
+    if (/text\/html|application\/xhtml|application\/xml|text\/xml/i.test(ctype || "")) return true;
+    const s = head.subarray(0, 64).toString("latin1").trimStart().toLowerCase();
+    return s.startsWith("<!doctype html") || s.startsWith("<html") || s.startsWith("<head") || s.startsWith("<error>");
+  };
+
+  let peeked = await peek(upstream.stream);
+  if (!wantsPlaylist && looksLikePage(upstream.contentType, peeked.head)) {
+    // Interstitial — one fresh upstream attempt, then refuse honestly.
+    peeked.reader.cancel?.().catch(() => {});
+    upstream = ensureUsable(await fetchUpstream());
+    for (const h of ["content-type", "content-length", "content-range", "accept-ranges", "etag", "last-modified"]) {
+      if (upstream.headers[h]) headers[h] = upstream.headers[h];
+      else delete headers[h];
+    }
+    peeked = await peek(upstream.stream);
+    if (looksLikePage(upstream.contentType, peeked.head)) {
+      peeked.reader.cancel?.().catch(() => {});
+      throw new AppError(
+        "E_ACCESS_DENIED",
+        "The host returned a web page instead of the video (bot check or expired link). Preview/download refused — no fake file is served.",
+        { status: 502, details: { contentType: upstream.contentType || null } },
+      );
+    }
+  }
+
+  const pipeHead = (head, reader) =>
+    new ReadableStream({
+      start(controller) {
+        if (head.length) controller.enqueue(head);
+      },
+      async pull(controller) {
+        const { done, value } = await reader.read();
+        if (done) controller.close();
+        else controller.enqueue(value);
+      },
+      cancel(reason) {
+        return reader.cancel(reason);
+      },
+    });
+
+  // ---- HLS playlist rewriting -------------------------------------------
+  if (wantsPlaylist && !clientRange) {
+    const chunks = [peeked.head];
+    let total = peeked.head.length;
+    const reader = peeked.reader;
     let tooLarge = false;
     for (;;) {
       const { done, value } = await reader.read();
@@ -257,5 +320,5 @@ async function proxyResponse(request, verified, { forceAttachment = false } = {}
     return new Response(rewritten, { status: 200, headers });
   }
 
-  return new Response(upstream.stream, { status: upstream.status, headers });
+  return new Response(pipeHead(peeked.head, peeked.reader), { status: upstream.status, headers });
 }
